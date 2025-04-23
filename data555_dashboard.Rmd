@@ -1,0 +1,170 @@
+---
+title: "Data555-Widgets"
+author: "Chenyang Li"
+date: "2025-04-23"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows 
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# EEG Signal Analysis
+
+## Interactive Visualization of ERP Signals
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+library(ggplot2)
+library(plotly)
+library(reticulate)
+np <- import("numpy")
+# Load data
+data_dir <- "/Users/li.chenyang/Documents/PycharmProjects/Thesis_Project/simulation_data/multi"
+seed <- 1 
+# Load naive_signal_train
+data_signal <- np$load(file.path(data_dir, paste0("naive_signal_train_seed_", seed, ".npz")), allow_pickle=TRUE)
+naive_signal_train <- data_signal$get("naive_signal_train")
+
+# Load naive_type_train
+data_type <- np$load(file.path(data_dir, paste0("naive_type_train_seed_", seed, ".npz")), allow_pickle=TRUE)
+naive_type_train <- data_type$get("naive_type_train")
+
+# Ensure indices are correctly extracted
+target_idx <- which(naive_type_train == 1)
+nontarget_idx <- which(naive_type_train == 0)
+
+# Compute mean and standard deviation for target and non-target
+target_mean <- colMeans(naive_signal_train[target_idx, ])
+nontarget_mean <- colMeans(naive_signal_train[nontarget_idx, ])
+std_tar <- apply(naive_signal_train[target_idx, ], 2, sd)
+std_nontar <- apply(naive_signal_train[nontarget_idx, ], 2, sd)
+
+# Create data frame for plotting
+plot_data <- data.frame(
+  TimeSpot = 1:50,
+  TargetMean = target_mean[1:50],
+  TargetSD = std_tar[1:50],
+  NonTargetMean = nontarget_mean[1:50],
+  NonTargetSD = std_nontar[1:50]
+)
+```
+
+```{r, echo=FALSE}
+
+plot_data$Condition_Target <- "Target"
+plot_data$Condition_NonTarget <- "Non-Target"
+
+plot_target <- data.frame(
+  TimeSpot = plot_data$TimeSpot,
+  Mean = plot_data$TargetMean,
+  SD = plot_data$TargetSD,
+  Condition = "Target"
+)
+
+plot_nontarget <- data.frame(
+  TimeSpot = plot_data$TimeSpot,
+  Mean = plot_data$NonTargetMean,
+  SD = plot_data$NonTargetSD,
+  Condition = "Non-Target"
+)
+
+plot_all <- rbind(plot_target, plot_nontarget)
+
+plot_all$Mean_Legend <- as.character(paste(plot_all$Condition, "Mean"))
+plot_all$SD_Legend <- as.character(paste(plot_all$Condition, "Error Bar"))
+
+p <- ggplot() +
+  geom_ribbon(data = plot_all, aes(x = TimeSpot, ymin = round(Mean - SD, 2), ymax = round(Mean + SD, 2), fill = SD_Legend), alpha = 0.2) +
+  geom_line(data = plot_all, aes(x = TimeSpot, y = round(Mean, 2), color = Mean_Legend), size = 1) +
+  scale_color_manual(
+    name = "Mean Signal",
+    values = c("Target Mean" = "blue", "Non-Target Mean" = "red")
+  ) +
+  scale_fill_manual(
+    name = "with Error Bar",
+    values = c("Target Error Bar" = "blue", "Non-Target Error Bar" = "red")
+  ) +
+  labs(title = "EEG Signal Analysis", x = "Time Spots", y = "Amplitude (µV)") +
+  theme_minimal()
+
+ggplotly(p, tooltip = c("x", "y"))
+
+```
+
+## Key Takeaways
+
+The visualization shows that target EEG signals fluctuate more over time compared to stable non-target signals. The shaded areas represent ±1 standard deviation, highlighting variability at each time point. Users can hover to explore exact amplitude values.
+
+
+# Model Accuracy
+
+## Training vs Testing Accuracy Trends
+
+```{r, echo=FALSE}
+
+# Load accuracy data for training
+accuracy_train_data <- np$load(file.path(data_dir, paste0("accuracy_proportion_train_seed_", seed, ".npz")), allow_pickle=TRUE)
+accuracy_proportions_train <- accuracy_train_data$get("accuracy_proportions")
+
+# Load accuracy data for testing
+accuracy_test_data <- np$load(file.path(data_dir, paste0("accuracy_proportion_test_seed_", seed, ".npz")), allow_pickle=TRUE)
+accuracy_proportions_test <- accuracy_test_data$get("accuracy_proportions")
+
+# Create data frames
+df_train <- data.frame(
+  Sequence = 1:length(accuracy_proportions_train),
+  Accuracy = accuracy_proportions_train
+)
+
+df_test <- data.frame(
+  Sequence = 1:length(accuracy_proportions_test),
+  Accuracy = accuracy_proportions_test
+)
+```
+
+```{r, echo=FALSE}
+library(plotly)
+
+df_train$Sequence <- as.integer(df_train$Sequence)
+df_test$Sequence <- as.integer(df_test$Sequence)
+
+p_train <- ggplot(df_train, aes(x = Sequence, y = round(Accuracy, 2))) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue") +
+  labs(title = "Training Accuracy", x = "Sequence Number", y = "Accuracy Proportion") +
+  ylim(0, 1) +
+  scale_x_continuous(breaks = df_train$Sequence) +
+  theme_minimal()
+
+p_test <- ggplot(df_test, aes(x = Sequence, y = round(Accuracy, 2))) +
+  geom_line(color = "red") +
+  geom_point(color = "red") +
+  labs(title = "Testing Accuracy", x = "Sequence Number", y = "Accuracy Proportion") +
+  ylim(0, 1) +
+  scale_x_continuous(breaks = df_test$Sequence) +
+  theme_minimal()
+
+plot_train <- ggplotly(p_train, tooltip =  c("x", "y"))
+plot_test <- ggplotly(p_test, tooltip =  c("x", "y"))
+
+subplot(plot_train, plot_test, nrows = 1, shareY = TRUE, titleX = TRUE, margin = 0.05) %>%
+  layout(title = "Accuracy Proportion: Training vs Testing")
+
+```
+
+## Key Takeaways
+
+The plots show that training accuracy remains consistently high across sequences, indicating good model fitting. In contrast, testing accuracy varies more, reflecting the model’s generalization performance on unseen data. Hovering over points reveals exact accuracy values for each sequence.
+
+# Dataset Description
+
+The dataset consists of simulated EEG signals and prediction accuracy data generated based on real-world patterns from the University of Michigan Direct Brain Interface (UM-DBI) project. It includes 3,420 observations with 50 features each, representing two EEG channels. The simulation replicates the structure of P300 event-related potentials (ERPs) observed in BCI systems. Prediction accuracy data were derived from a Bayesian sequential updating model applied to these simulated signals. The data were generated in Jan 2025 to evaluate ERP pattern recognition and model performance in brain-computer interface applications.
+
+<div style="position: fixed; bottom: 10px; width: 100%; text-align: center; font-size: 13px; color: gray;">
+  This dashboard supports adaptive P300-based BCI systems by visualizing ERP patterns and model accuracy trends, aiming to enhance communication tools for individuals with severe motor impairments.
+</div>
+
+
