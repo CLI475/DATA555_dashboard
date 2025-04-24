@@ -17,7 +17,7 @@ This dashboard supports the development of adaptive P300-based BCI systems by hi
 ## How to View the Dashboard
 Access the interactive dashboard via GitHub Pages:
 
-👉 [View Dashboard Here](...)
+👉 https://cli475.github.io/DATA555_dashboard/
 
 > The dashboard includes interactive visualizations for ERP signal analysis and model accuracy trends, allowing users to explore variability, performance, and key patterns through dynamic plots.
 
