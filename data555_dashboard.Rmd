@@ -167,4 +167,9 @@ The dataset consists of simulated EEG signals and prediction accuracy data gener
   This dashboard supports adaptive P300-based BCI systems by visualizing ERP patterns and model accuracy trends, aiming to enhance communication tools for individuals with severe motor impairments.
 </div>
 
+## GitHub Repository
+
+You can find the full source code and project details here:  
+https://github.com/CLI475/DATA555_dashboard
+
 
